@@ -122,3 +122,38 @@ Matplotlib provides useful window controls like zooming and panning. Read the li
 [Interactive navigation](https://matplotlib.org/stable/users/explain/figure/interactive.html#interactive-navigation)
 
 [Navigation keyboard shortcuts](https://matplotlib.org/stable/users/explain/figure/interactive.html#navigation-keyboard-shortcuts)
+
+## Streamlit Dashboard
+
+This project now includes an interactive web-based dashboard built with Streamlit, allowing for a more user-friendly way to generate and visualize RRG charts.
+
+**Features:**
+
+*   Interactive UI to select benchmark, symbols (via text input or file upload), and RRG parameters (tail length, timeframe, RS-Ratio window, RS-Momentum period, end date).
+*   Real-time chart generation based on your inputs.
+*   Displays warnings for data loading issues without halting the entire process if some symbols are valid.
+*   Uses the same `src/user.json` for initial configuration (like `DATA_PATH`).
+
+**Running the Dashboard:**
+
+1.  **Ensure Streamlit is installed:**
+    If you haven't already, install Streamlit. It's included in `requirements.txt`.
+    ```bash
+    pip install streamlit
+    ```
+    Or, if you've cloned the project and want to install all dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+2.  **Navigate to the project root directory** in your terminal.
+
+3.  **Run the Streamlit app:**
+    ```bash
+    streamlit run dashboard.py
+    ```
+    This will typically open the dashboard in your default web browser.
+
+**Configuration:**
+
+The dashboard uses the `src/user.json` file for its initial setup, particularly for the `DATA_PATH` where your CSV data files are stored. Ensure this file is correctly configured as described in the [Setup](#setup) section. The dashboard also allows overriding many parameters through its UI.

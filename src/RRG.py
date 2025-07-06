@@ -42,9 +42,14 @@ class RRG:
         # Tail count set to minimum 2
         self.tail_count = max(2, tail_count)
 
-        self.window = config.get("WINDOW", 14)
-        self.period = config.get("PERIOD", 52)
+        # self.window = config.get("WINDOW", 14) # Overridden by kwargs if present
+        # self.period = config.get("PERIOD", 52) # Overridden by kwargs if present
         self.config = config
+
+        # Allow overriding window and period from kwargs (e.g., Streamlit UI)
+        self.window = kwargs.get("window", config.get("WINDOW", 14))
+        self.period = kwargs.get("period", config.get("PERIOD", 52))
+
 
         # Keep track of data points, lines and text annotations
         self.state = {}
@@ -314,8 +319,219 @@ class RRG:
                 window_manager.full_screen_toggle()
 
         self.axs = axs
+        # plt.show() # Removed for Streamlit compatibility
+        return self.fig
 
-        plt.show()
+    def prepare_rrg_data(self):
+        """
+        Loads data, calculates RS Ratio and RS Momentum, and prepares
+        all necessary data for plotting the RRG chart.
+        Returns a dictionary containing plot data.
+        """
+        bm = self.loader.get(self.benchmark)
+
+        if bm is None or bm.empty:
+            raise ValueError(
+                f"Unable to load benchmark data for {self.benchmark}"
+            )
+
+        if len(bm) < self.minimum_data_length:
+            raise ValueError("Benchmark data is insufficient to plot chart.")
+
+        bm_closes = self._process_ser(bm.loc[:, "Close"])
+
+        warnings = []
+        plot_data = {
+            "benchmark_name": self.benchmark.upper(),
+            "benchmark_date": bm.index[-1],
+            "tickers_data": [],
+            "x_min": 200, "x_max": 0, "y_min": 200, "y_max": 0,
+            "warnings": warnings,
+        }
+
+        for i, ticker_entry in enumerate(self.watchlist):
+            ticker, short_name = ticker_entry, ticker_entry
+            if "," in ticker_entry:
+                ticker, short_name = ticker_entry.split(",", 1)
+
+            # The loader itself might produce warnings (e.g. file not found if we adapt it)
+            # For now, loader.get() returns None or empty df on failure.
+            df_load_result = self.loader.get(ticker)
+
+            df = None
+            if isinstance(df_load_result, tuple): # Assuming loader might return (df, loader_warnings)
+                df, loader_warnings = df_load_result
+                warnings.extend(loader_warnings)
+            else: # Current loader returns df or None
+                df = df_load_result
+
+            if df is None or df.empty:
+                warnings.append(f"Warning: Unable to load data for `{ticker.upper()}`. It will be skipped.")
+                continue
+
+            ser_closes = self._process_ser(df.loc[:, "Close"])
+            rsr = self._calculate_rs(ser_closes, bm_closes)
+            rsm = self._calculate_momentum(rsr)
+
+            if min(len(rsm), len(rsr)) < self.tail_count:
+                warnings.append(f"Warning: Insufficient data for `{ticker.upper()}` to meet tail count ({self.tail_count}). It will be skipped.")
+                continue
+
+            rsr_line = rsr.iloc[-self.tail_count :]
+            rsm_line = rsm.iloc[-self.tail_count :]
+
+            current_rsr = rsr.iloc[-1]
+            current_rsm = rsm.iloc[-1]
+
+            color = self._get_color(current_rsr, current_rsm)
+
+            plot_data["x_max"] = max(plot_data["x_max"], rsr_line.max())
+            plot_data["x_min"] = min(plot_data["x_min"], rsr_line.min())
+            plot_data["y_max"] = max(plot_data["y_max"], rsm_line.max())
+            plot_data["y_min"] = min(plot_data["y_min"], rsm_line.min())
+
+            ticker_data = {
+                "id": f"s{i}",
+                "short_name": short_name.upper(),
+                "rsr_latest": current_rsr,
+                "rsm_latest": current_rsm,
+                "rsr_tail": rsr_line,
+                "rsm_tail": rsm_line,
+                "color": color,
+                "raw_rsr": rsr, # For date annotations
+                "raw_rsm": rsm, # For date annotations
+            }
+            plot_data["tickers_data"].append(ticker_data)
+
+        if not plot_data["tickers_data"]:
+             raise ValueError("No ticker data could be processed for the RRG chart.")
+
+        return plot_data
+
+    def generate_rrg_figure(self, plot_data: dict):
+        """
+        Generates the Matplotlib figure for the RRG chart using pre-calculated data.
+        """
+        txt_alpha = 0.4
+        self.fig, axs = plt.subplots()
+        axs.format_coord = self._format_coords
+        plt.tight_layout()
+
+        axs.set_title(
+            f"RRG - {plot_data['benchmark_name']} - {plot_data['benchmark_date']:%d %b %Y}"
+        )
+        axs.set_xlabel("RS Ratio")
+        axs.set_ylabel("RS Momentum")
+
+        axs.axhline(y=100, color="black", linestyle="--", linewidth=0.3)
+        axs.axvline(x=100, color="black", linestyle="--", linewidth=0.3)
+
+        axs.fill_between([93.5, 100], 100, 106.5, color="#b1ebff") # Improving
+        axs.fill_between([100, 106.5], 100, 106.5, color="#bdffc9") # Leading
+        axs.fill_between([100, 106.5], 93.5, 100, color="#fff7b8") # Weakening
+        axs.fill_between([93.5, 100], 93.5, 100, color="#ffb9c6") # Lagging
+
+        # Reset state for new plot
+        self.state = {}
+
+        for ticker_data in plot_data["tickers_data"]:
+            annotation = axs.annotate(
+                ticker_data["short_name"],
+                xy=(ticker_data["rsr_latest"], ticker_data["rsm_latest"]),
+                xytext=(5, -3),
+                textcoords="offset points",
+                horizontalalignment="left",
+                alpha=0, # Initially hidden, controlled by _toggle_text or pick event
+            )
+
+            marker = axs.scatter(
+                x=ticker_data["rsr_latest"],
+                y=ticker_data["rsm_latest"],
+                s=40,
+                color=ticker_data["color"],
+                marker="o",
+                picker=True, # Allows interaction if event handlers are connected
+            )
+            marker.set_url(ticker_data["id"])
+
+            markers_tail = axs.scatter(
+                x=ticker_data["rsr_tail"][:-1],
+                y=ticker_data["rsm_tail"][:-1],
+                c=ticker_data["color"],
+                s=20,
+                marker="o",
+                alpha=0, # Initially hidden
+            )
+
+            if scipy_installed and self.tail_count > 2:
+                x_smooth, y_smooth = self._get_smooth_curve(
+                    ticker_data["rsr_tail"], ticker_data["rsm_tail"]
+                )
+            else:
+                x_smooth = ticker_data["rsr_tail"]
+                y_smooth = ticker_data["rsm_tail"]
+
+            line = axs.plot(
+                x_smooth,
+                y_smooth,
+                linestyle="-",
+                color=ticker_data["color"],
+                linewidth=1.2,
+                alpha=0, # Initially hidden
+            )[0]
+
+            # Date annotations (initially hidden)
+            # Need raw rsr and rsm for correct date indexing
+            raw_rsr_for_dates = ticker_data["raw_rsr"].iloc[-self.tail_count:]
+            raw_rsm_for_dates = ticker_data["raw_rsm"].iloc[-self.tail_count:]
+
+            date_annotations = tuple(
+                axs.annotate(
+                    idx.strftime("%d %b %Y"),
+                    xy=(raw_rsr_for_dates.loc[idx], raw_rsm_for_dates.loc[idx]),
+                    xytext=(-5, -3),
+                    textcoords="offset points",
+                    horizontalalignment="right",
+                    alpha=0,
+                    zorder=100,
+                    fontweight=("bold" if idx == raw_rsr_for_dates.index[-1] else "normal"),
+                )
+                for idx in raw_rsr_for_dates.index
+            )
+
+            self.state[ticker_data["id"]] = dict(
+                line=line,
+                markers=markers_tail,
+                annotation=annotation,
+                dates=date_annotations,
+            )
+
+        axs.set_xlim(plot_data["x_min"] - 0.3, plot_data["x_max"] + 0.3)
+        axs.set_ylim(plot_data["y_min"] - 0.3, plot_data["y_max"] + 0.3)
+
+        # Quadrant Labels
+        if plot_data["x_min"] < 100 and plot_data["y_max"] > 100:
+            axs.text(plot_data["x_min"] - 0.2, plot_data["y_max"], "Improving", fontweight="bold", alpha=txt_alpha)
+        if plot_data["x_max"] > 100 and plot_data["y_max"] > 100:
+            axs.text(plot_data["x_max"] - 0.1, plot_data["y_max"], "Leading", fontweight="bold", alpha=txt_alpha)
+        if plot_data["x_max"] > 100 and plot_data["y_min"] < 100:
+            axs.text(plot_data["x_max"] - 0.2, plot_data["y_min"], "Weakening", fontweight="bold", alpha=txt_alpha)
+        if plot_data["x_min"] < 100 and plot_data["y_min"] < 100:
+            axs.text(plot_data["x_min"] - 0.2, plot_data["y_min"], "Lagging", fontweight="bold", alpha=txt_alpha)
+
+        # Connect event handlers - these might not work seamlessly in Streamlit
+        # without further adaptation or specific Streamlit components.
+        # For now, the plot will be static in Streamlit unless st.pyplot handles basic interactions.
+        self.fig.canvas.mpl_connect("pick_event", self._on_pick)
+        self.fig.canvas.mpl_connect("key_press_event", self._on_key_press)
+
+        # Full screen toggle is CLI specific, remove for Streamlit
+        # window_manager = plt.get_current_fig_manager()
+        # if window_manager: ...
+
+        self.axs = axs
+        return self.fig
+
 
     @staticmethod
     def _process_ser(ser: pd.Series) -> pd.Series:

@@ -94,64 +94,96 @@ class EODFileLoader(AbstractLoader):
 
     def get(self, symbol: str) -> Optional[pd.DataFrame]:
 
+        warnings = []
         file = self.data_path / f"{symbol.lower()}.csv"
 
         if not file.exists():
-            logger.warning(f"File not found: {file}")
-            return
+            warnings.append(f"File not found: {file}")
+            return None, warnings
 
-        if self.tf == "monthly" or self.tf == "quarterly":
-            # It is faster to load the entire file for monthly or quarterly
-            # considering average size of file
-            return self.process_monthly(file, self.end_date)
-
+        df = None
         try:
-            df = csv_loader(
+            if self.tf == "monthly" or self.tf == "quarterly":
+                df = self.process_monthly(file, self.end_date) # process_monthly should also return (df, warnings_list)
+                # For now, let's assume process_monthly is refactored or doesn't produce its own warnings for this example
+                # If process_monthly is called, it might return a tuple (df, list_of_warnings)
+                # For simplicity here, we'll assume it returns df and we handle its warnings separately if needed.
+                # Or, it could append to a list passed by reference.
+                # Let's assume process_monthly is refactored to: df, new_warnings = self.process_monthly(...)
+                # and then warnings.extend(new_warnings)
+            else:
+                df = csv_loader(
+                    file,
+                    period=self.period,
+                    end_date=self.end_date,
+                    chunk_size=self.chunk_size,
+                    date_column=self.date_column,
+                    date_format=self.date_format,
+                )
+        except IndexError:
+            warnings.append(f"IndexError while loading {symbol}. Insufficient data or incorrect format near end of file.")
+            return None, warnings
+        except Exception as e:
+            warnings.append(f"{symbol}: Error loading file - {e!r}")
+            return None, warnings
+
+        if df is None or df.empty: # df could be None if process_monthly failed and returned None
+             # A warning might have already been added by specific exceptions.
+             # If df is empty after successful load, that's also a case to report if not already covered.
+            if not any(symbol in w for w in warnings): # Avoid duplicate general message if specific error already logged
+                warnings.append(f"No data loaded for {symbol}, or file was empty after processing.")
+            return None, warnings
+
+
+        if self.tf == self.default_tf: # If no resampling needed and df is not empty
+            return df, warnings
+
+        # Resampling part
+        try:
+            df_resampled = (
+                df.resample(self.offset_str, label="left")
+                .agg(self.ohlc_dict)
+                .dropna()
+            )
+            assert isinstance(df_resampled, pd.DataFrame)
+            return df_resampled, warnings
+        except Exception as e:
+            warnings.append(f"Error during resampling for {symbol} to {self.tf}: {e!r}")
+            return None, warnings
+
+
+    def process_monthly(self, file, end_date) -> tuple[Optional[pd.DataFrame], list[str]]:
+        warnings = []
+        df = None
+        try:
+            df = pd.read_csv(
                 file,
-                period=self.period,
-                end_date=self.end_date,
-                chunk_size=self.chunk_size,
-                date_column=self.date_column,
+                index_col="Date",
+                parse_dates=["Date"],
                 date_format=self.date_format,
             )
-        except IndexError:
-            return
+
+            if end_date:
+                df = df.loc[:end_date].iloc[-self.period :]
+            else:
+                df = df.iloc[-self.period :]
+
+            if df.empty:
+                warnings.append(f"No data for {file.stem} after date slicing for monthly/quarterly processing.")
+                return None, warnings
+
+            df_resampled = df.resample(self.offset_str).agg(self.ohlc_dict).dropna()
+
+            if df_resampled.empty:
+                warnings.append(f"No data for {file.stem} after resampling to {self.offset_str}.")
+                return None, warnings
+
+            assert isinstance(df_resampled, pd.DataFrame)
+            return df_resampled, warnings
+
         except Exception as e:
-            # Any other error log it with the symbol name
-            logger.warning(f"{symbol}: Error loading file - {e!r}")
-            return
-
-        if self.tf == self.default_tf or df.empty:
-            return df
-
-        df = (
-            df.resample(self.offset_str, label="left")
-            .agg(self.ohlc_dict)
-            .dropna()
-        )
-
-        assert isinstance(df, pd.DataFrame)
-
-        return df
-
-    def process_monthly(self, file, end_date) -> pd.DataFrame:
-        df = pd.read_csv(
-            file,
-            index_col="Date",
-            parse_dates=["Date"],
-            date_format=self.date_format,
-        )
-
-        if end_date:
-            df = df.loc[:end_date].iloc[-self.period :]
-        else:
-            df = df.iloc[-self.period :]
-
-        df = df.resample(self.offset_str).agg(self.ohlc_dict).dropna()
-
-        assert isinstance(df, pd.DataFrame)
-
-        return df
+            warnings.append(f"Error processing monthly/quarterly for {file.stem}: {e!r}")
+            return None, warnings
 
     def last_day_week(self, date: datetime) -> datetime:
         """Given a date returns the date for Saturday"""
