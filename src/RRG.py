@@ -64,9 +64,7 @@ class RRG:
 
         loader_class = utils.get_loader_class(config)
 
-        self.loader = loader_class(
-            config, period=self.minimum_data_length, **kwargs
-        )
+        self.loader = loader_class(config, period=self.minimum_data_length, **kwargs)
 
         self.help_plt = None
 
@@ -109,9 +107,7 @@ class RRG:
         bm = self.loader.get(self.benchmark)
 
         if bm is None or bm.empty:
-            raise ValueError(
-                f"Unable to load benchmark data for {self.benchmark}"
-            )
+            raise ValueError(f"Unable to load benchmark data for {self.benchmark}")
 
         if len(bm) < self.minimum_data_length:
             raise ValueError("Benchmark data is insufficient to plot chart.")
@@ -124,9 +120,7 @@ class RRG:
 
         plt.tight_layout()
 
-        axs.set_title(
-            f"RRG - {self.benchmark.upper()} - {bm.index[-1]:%d %b %Y}"
-        )
+        axs.set_title(f"RRG - {self.benchmark.upper()} - {bm.index[-1]:%d %b %Y}")
         axs.set_xlabel("RS Ratio")
         axs.set_ylabel("RS Momentum")
 
@@ -353,9 +347,7 @@ class RRG:
         else:
             return "#00749D" if y > 100 else "#E0002B"
 
-    def _calculate_rs(
-        self, stock_df: pd.Series, benchmark_df: pd.Series
-    ) -> pd.Series:
+    def _calculate_rs(self, stock_df: pd.Series, benchmark_df: pd.Series) -> pd.Series:
         """
         Returns the RS ratio as a multiple of standard dev of SMA(RS)
 
@@ -500,14 +492,10 @@ class RRG:
                     self._clear_active_date_labels()
                     self.tabindex = (self.tabindex + step) % length
                     self.state[url]["dates"][self.tabindex].set_alpha(1)
-                    self.state[url]["dates"][self.tabindex].set_backgroundcolor(
-                        "white"
-                    )
+                    self.state[url]["dates"][self.tabindex].set_backgroundcolor("white")
 
                 # track the visible labels, so we can clear them as needed
-                self.active_date_labels.append(
-                    self.state[url]["dates"][self.tabindex]
-                )
+                self.active_date_labels.append(self.state[url]["dates"][self.tabindex])
 
         self.fig.canvas.draw_idle()
 

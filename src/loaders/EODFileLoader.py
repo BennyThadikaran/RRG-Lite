@@ -35,7 +35,6 @@ class EODFileLoader(AbstractLoader):
         end_date: Optional[datetime] = None,
         period: int = 160,
     ):
-
         # No need to close method to be called for this Class
         self.closed = True
 
@@ -44,9 +43,7 @@ class EODFileLoader(AbstractLoader):
         if self.default_tf not in self.timeframes:
             valid_values = ", ".join(self.timeframes.keys())
 
-            raise ValueError(
-                f"`DEFAULT_TF` in config must be one of {valid_values}"
-            )
+            raise ValueError(f"`DEFAULT_TF` in config must be one of {valid_values}")
 
         if tf is None:
             tf = self.default_tf
@@ -92,7 +89,6 @@ class EODFileLoader(AbstractLoader):
             self.period = 30 * 3 * period
 
     def get(self, symbol: str) -> Optional[pd.DataFrame]:
-
         file = self.data_path / f"{symbol.lower()}.csv"
 
         if not file.exists():
@@ -122,11 +118,7 @@ class EODFileLoader(AbstractLoader):
         if self.tf == self.default_tf or df.empty:
             return df
 
-        df = (
-            df.resample(self.offset_str, label="left")
-            .agg(self.ohlc_dict)
-            .dropna()
-        )
+        df = df.resample(self.offset_str, label="left").agg(self.ohlc_dict).dropna()
 
         assert isinstance(df, pd.DataFrame)
 
