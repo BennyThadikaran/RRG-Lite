@@ -155,7 +155,7 @@ class RRG:
 
             ser_closes = self._process_ser(df.loc[:, "Close"])
 
-            rsr = self._calculate_rs(ser_closes, bm_closes)
+            rsr = self.calculate_rs_crossover(ser_closes, bm_closes)
 
             rsm = self._calculate_momentum(rsr)
 
@@ -380,6 +380,17 @@ class RRG:
         roc_sma = rs_roc.rolling(window=self.window)
 
         return ((rs_roc - roc_sma.mean()) / roc_sma.std(ddof=1)).dropna() + 100
+
+    def calculate_rs_crossover(
+        self, stock_df: pd.Series, benchmark_df: pd.Series
+    ) -> pd.Series:
+        rs = (stock_df / benchmark_df) * 100
+
+        rs_sma_10 = rs.rolling(window=10).mean()
+        rs_sma_30 = rs.rolling(window=30).mean()
+        rs_diff = rs_sma_10 - rs_sma_30
+
+        return (rs_diff / rs_diff.std(ddof=1)).dropna() + 100
 
     def _clear_all(self, key):
         """
