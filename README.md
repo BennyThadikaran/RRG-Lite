@@ -4,6 +4,18 @@ RRG-Lite is a Python CLI tool for displaying Relative Rotation graph (RRG) chart
 
 **Supports Python >= 3.8**
 
+## UPDATE - 18th Aug 2025: 
+
+I have added a new feature branch [feat/sma_rs_crossover](https://github.com/BennyThadikaran/RRG-Lite/tree/feat/sma_rs_crossover) which uses the RS crossover of 10 and 30 SMA as the base. I found the earlier calculation was too volatile and unreliable. I am still tweaking the code but I'm happy with the result so far.
+
+Once complete, I will set this as default and update the main branch with an config option to switch to the old calculation.
+
+If you wish to try it out, clone the repo as usual and run the below code. This is create the feature branch locally so you can experiment and run it.
+
+`git checkout -b feat/sma_rs_crossover origin/feat/sma_rs_crossover`
+
+Perform the rest of the setup as usual. (see below for install and setup)
+
 ![RRG-Lite Charts](https://res.cloudinary.com/doyu4uovr/image/upload/s--iD51VT-2--/f_auto/v1731069111/RRG-Lite/rrg-lite-main_ggsdbr.png)
 
 An RRG (Relative Rotation Graph) chart is used to analyze the relative strength and momentum of multiple stocks or sectors compared to a benchmark (usually a market index like the S&P 500 or Nifty 50).
