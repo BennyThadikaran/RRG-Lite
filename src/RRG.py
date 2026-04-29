@@ -378,7 +378,10 @@ marker, and label
         """
 
         if self.base_date:
-            base_rs = rs_ratio.at[self.base_date]
+            try:
+                base_rs = rs_ratio.at[self.base_date]
+            except KeyError:
+                base_rs = rs_ratio.iloc[-self.period]
         else:
             base_rs = rs_ratio.iloc[-self.period]
 
