@@ -6,13 +6,18 @@ from datetime import datetime
 from pathlib import Path
 
 
-def load_config():
-    config_path = Path(__file__).parent / "user.json"
-
-    if "-c" in sys.argv or "--config" in sys.argv:
-        idx = sys.argv.index("-c" if "-c" in sys.argv else "--config") + 1
-
-        config_path = Path(sys.argv[idx]).expanduser().resolve()
+def load_config(argv=None):
+    """Resolve config path using argparse before touching sys.argv."""
+    parser = ArgumentParser(exit_on_error=False)
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=lambda x: Path(x).expanduser().resolve(),
+        metavar="filepath",
+        help="Custom config file",
+    )
+    args, _unknown = parser.parse_known_args(argv)
+    config_path = args.config if args.config else Path(__file__).parent / "user.json"
 
     if config_path.exists():
         return json.loads(config_path.read_bytes())
