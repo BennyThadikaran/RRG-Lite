@@ -23,7 +23,14 @@ if "-h" in sys.argv or "--help" in sys.argv:
     utils.parse_cli_options()
     exit(0)
 
-config = utils.load_config()
+try:
+    config = utils.load_config()
+except TypeError as e:
+    # Python 3.8 compatibility - ArgumentParser has no `exit_on_error`
+    if "exit_on_error" in str(e):
+        config = utils.load_config_legacy()
+    else:
+        raise
 
 if not config:
     exit("Configuration file is missing.")

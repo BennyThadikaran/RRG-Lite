@@ -1,5 +1,6 @@
 import importlib
 import json
+import sys
 from argparse import ArgumentParser
 from datetime import datetime
 from pathlib import Path
@@ -17,6 +18,18 @@ def load_config(argv=None):
     )
     args, _unknown = parser.parse_known_args(argv)
     config_path = args.config if args.config else Path(__file__).parent / "user.json"
+
+    if config_path.exists():
+        return json.loads(config_path.read_bytes())
+
+
+def load_config_legacy():
+    config_path = Path(__file__).parent / "user.json"
+
+    if "-c" in sys.argv or "--config" in sys.argv:
+        idx = sys.argv.index("-c" if "-c" in sys.argv else "--config") + 1
+
+        config_path = Path(sys.argv[idx]).expanduser().resolve()
 
     if config_path.exists():
         return json.loads(config_path.read_bytes())
