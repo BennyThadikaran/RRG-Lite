@@ -267,40 +267,54 @@ TAIL MODE
         axs.set_ylim(y_lim_min, y_lim_max)
 
         # Labels for each quadrant
+        label_pad = 0.03
+
         if x_min < 100 and y_max > 100:
             axs.text(
-                x_min - 0.2,
-                y_max,
+                label_pad,
+                1 - label_pad,
                 "Improving",
                 fontweight="bold",
                 alpha=txt_alpha,
+                transform=axs.transAxes,
+                ha="left",
+                va="top",
             )
 
         if x_max > 100 and y_max > 100:
             axs.text(
-                x_max - 0.1,
-                y_max,
+                1 - label_pad,
+                1 - label_pad,
                 "Leading",
                 fontweight="bold",
                 alpha=txt_alpha,
+                transform=axs.transAxes,
+                ha="right",
+                va="top",
             )
 
         if x_max > 100 and y_min < 100:
             axs.text(
-                x_max - 0.2,
-                y_min,
+                1 - label_pad,
+                label_pad,
                 "Weakening",
                 fontweight="bold",
                 alpha=txt_alpha,
+                transform=axs.transAxes,
+                ha="right",
+                va="bottom",
             )
 
         if x_min < 100 and y_min < 100:
             axs.text(
-                x_min - 0.2,
-                y_min,
+                label_pad,
+                label_pad,
                 "Lagging",
                 fontweight="bold",
                 alpha=txt_alpha,
+                transform=axs.transAxes,
+                ha="left",
+                va="bottom",
             )
 
         self.fig.canvas.mpl_connect("pick_event", self._on_pick)
