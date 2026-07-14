@@ -19,6 +19,9 @@ if "-v" in sys.argv or "--version" in sys.argv:
         """
     )
 
+if "-h" in sys.argv or "--help" in sys.argv:
+    utils.parse_cli_options()
+    exit(0)
 
 config = utils.load_config()
 
