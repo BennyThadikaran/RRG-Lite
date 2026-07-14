@@ -71,22 +71,21 @@ class RRG:
         self.help_plt = None
 
         self.help_str = """
-## Keyboard Shortcuts
+KEYBOARD SHORTCUTS
+────────────────────────────────
 
-[Delete] — Remove all lines and annotations
-[A]      — Toggle text annotations
-[T]      — Toggle tail lines
-[H]      — Display this help text
+Del        Clear all lines and annotations
+A          Toggle text annotations
+T          Toggle tail lines
+H          Show / hide this help
 
-## When tail lines are enabled:
+TAIL MODE
+────────────────────────────────
 
-Use the ← and → arrow keys to cycle through dates.
-
-## Mouse interaction
-
-Left-click a marker — to toggle the visibility of its tail,
-marker, and label
-        """
+1. Left-click a marker to enter tail mode.
+2. Use ← and → to cycle through dates.
+3. Left-click the marker again to exit.
+"""
 
         # Map keyboard shortcuts to their relevant handlers
         self.key_handler = dict(
@@ -462,16 +461,25 @@ marker, and label
 
         if self.help_plt is None:
             self.help_plt = self.axs.text(
-                0.5,
-                0.5,
+                0.03,
+                0.97,
                 self.help_str,
-                color="black",
-                backgroundcolor="white",
-                fontweight="bold",
-                transform=self.axs.transAxes,  # relative to plot area
-                bbox=dict(boxstyle="round,pad=1", facecolor="white"),
-                va="center",
+                transform=self.axs.transAxes,
+                ha="left",
+                va="top",
+                fontsize=11,
+                family="monospace",
+                color="#222222",
+                linespacing=1.4,
+                bbox=dict(
+                    boxstyle="round,pad=0.8",
+                    facecolor="white",
+                    edgecolor="#BBBBBB",
+                    linewidth=1.5,
+                ),
+                zorder=200,
             )
+
         else:
             self.help_plt.remove()
             self.help_plt = None
