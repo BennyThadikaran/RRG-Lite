@@ -26,7 +26,7 @@ class EODFileLoader(AbstractLoader):
 
     """
 
-    timeframes = dict(daily="D", weekly="W-SUN", monthly="MS", quarterly="QE")
+    timeframes = dict(daily="D", weekly="W", monthly="ME", quarterly="QE")
 
     def __init__(
         self,
@@ -48,7 +48,7 @@ class EODFileLoader(AbstractLoader):
         if tf is None:
             tf = self.default_tf
 
-        if not tf in self.timeframes:
+        if tf not in self.timeframes:
             valid_values = ", ".join(self.timeframes.keys())
 
             raise ValueError(f"Timeframe must be one of {valid_values}")
@@ -59,11 +59,7 @@ class EODFileLoader(AbstractLoader):
         self.end_date = end_date
         self.date_format = config.get("DATE_FORMAT", None)
 
-        if end_date:
-            if self.tf == "weekly":
-                self.end_date = self.last_day_week(end_date)
-            elif self.tf == "monthly":
-                self.end_date = self.last_day_month(end_date)
+        self.end_date = end_date
 
         self.data_path = Path(config["DATA_PATH"]).expanduser()
 
@@ -115,14 +111,15 @@ class EODFileLoader(AbstractLoader):
             logger.warning(f"{symbol}: Error loading file - {e!r}")
             return
 
+        if self.end_date:
+            df = df.loc[: self.end_date]
+
         if self.tf == self.default_tf or df.empty:
-            return df
+            return df.iloc[-self.period :]
 
-        df = df.resample(self.offset_str, label="left").agg(self.ohlc_dict).dropna()
+        df = df.resample(self.offset_str).agg(self.ohlc_dict).dropna()
 
-        assert isinstance(df, pd.DataFrame)
-
-        return df
+        return df.iloc[-self.period :]
 
     def process_monthly(self, file, end_date) -> pd.DataFrame:
         df = pd.read_csv(
@@ -142,31 +139,6 @@ class EODFileLoader(AbstractLoader):
         assert isinstance(df, pd.DataFrame)
 
         return df
-
-    def last_day_week(self, date: datetime) -> datetime:
-        """Given a date returns the date for Saturday"""
-
-        weekday = date.weekday()
-
-        if weekday == 5:
-            # saturday
-            return date
-
-        remaining_days = 5 - weekday
-
-        if remaining_days == -1:
-            # its a sunday
-            remaining_days += 7
-
-        return date + timedelta(remaining_days)
-
-    def last_day_month(self, date: datetime) -> datetime:
-        """Given a date returns the date for last day of month"""
-
-        month = date.month % 12 + 1
-        year = date.year + (1 if month == 1 else 0)
-
-        return datetime(year, month, 1) - timedelta(1)
 
     def close(self):
         """Not required here as nothing to close"""
