@@ -257,6 +257,12 @@ TAIL MODE
         y_lim_min = y_min - 0.3
         y_lim_max = y_max + 0.3
 
+        axs.set_title(
+            "h → Toggle Help",
+            loc="left",
+            color="darkslategray",
+        )
+
         # Background colors for each quadrant
         axs.fill_between([x_lim_min, 100], 100, y_lim_max, color="#b1ebff")
         axs.fill_between([100, x_lim_max], 100, y_lim_max, color="#bdffc9")
