@@ -52,6 +52,7 @@ class RRG:
         self.period = config.get("PERIOD", 52)
         self.base_date = config.get("BASE_DATE")
         self.config = config
+        self.base_rs = None
 
         # Keep track of data points, lines and text annotations
         self.state = {}
@@ -162,7 +163,7 @@ TAIL MODE
 
             rsr = self._calculate_rs(ser_closes, bm_closes)
 
-            rsm = self._calculate_momentum(rsr)
+            rsm = self._calculate_momentum(rsr, ticker)
 
             if min(len(rsm), len(rsr)) < self.tail_count:
                 print(f"Unable to load `{ticker.upper()}`: Insufficient data")
@@ -443,7 +444,7 @@ TAIL MODE
 
         return ((rs - rs_sma.mean()) / rs_sma.std(ddof=1)).dropna() + 100
 
-    def _calculate_momentum(self, rs_ratio: pd.Series) -> pd.Series:
+    def _calculate_momentum(self, rs_ratio: pd.Series, ticker: str) -> pd.Series:
         """
         Returns the RS momentum as a multiple of standard deviation of SMA(ROC)
 
@@ -453,16 +454,27 @@ TAIL MODE
         - Add 100 to serve as a base value
         """
 
-        if self.base_date:
-            try:
-                base_rs = rs_ratio.at[self.base_date]
-            except KeyError:
-                base_rs = rs_ratio.iloc[-self.period]
+        if self.base_date and self.base_rs is not None:
+            # use NEXT index value if no exact match
+            position = rs_ratio.index.get_indexer(
+                [self.base_date],
+                method="bfill",
+                tolerance=pd.Timedelta(days=6),
+            )[0]
+
+            if position == -1:
+                # No index date exists after base_date
+                self.base_rs = rs_ratio.iloc[-self.period]
+                print(
+                    f"{ticker}: Could not find base_date. Falling back to RS value {self.period} periods ago."
+                )
+            else:
+                self.base_rs = rs_ratio.iloc[position]
         else:
-            base_rs = rs_ratio.iloc[-self.period]
+            self.base_rs = rs_ratio.iloc[-self.period]
 
         # Rate of change (ROC)
-        rs_roc = ((rs_ratio / base_rs) - 1) * 100
+        rs_roc = ((rs_ratio / self.base_rs) - 1) * 100
 
         roc_sma = rs_roc.rolling(window=self.window)
 
