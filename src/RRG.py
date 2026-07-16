@@ -6,13 +6,6 @@ import pandas as pd
 
 import utils
 
-try:
-    from scipy import interpolate
-
-    scipy_installed = True
-except ModuleNotFoundError:
-    scipy_installed = False
-
 version = "1.0.12-beta.2"
 
 
@@ -25,6 +18,20 @@ class RRG:
         benchmark=None,
         **kwargs,
     ):
+        self.use_scipy = config.get("SCIPY_INSTALLED", False)
+        self.interpolate_fn = None
+
+        if self.use_scipy:
+            try:
+                from scipy import interpolate
+
+                self.interpolate_fn = interpolate
+            except ModuleNotFoundError:
+                print(
+                    "Module scipy is not installed. Run `pip install scipy` to install it."
+                )
+                exit(1)
+
         self.watchlist = watchlist
 
         benchmark_config = config.get("BENCHMARK", None)
@@ -212,7 +219,7 @@ TAIL MODE
                 zorder=10,
             )
 
-            if scipy_installed and self.tail_count > 2:
+            if self.tail_count > 2:
                 x, y = self._get_smooth_curve(
                     rsr.iloc[-self.tail_count :], rsm.iloc[-self.tail_count :]
                 )
@@ -357,13 +364,56 @@ TAIL MODE
 
         return ser
 
-    @staticmethod
-    def _get_smooth_curve(x, y):
-        # Interpolate a smooth curve through the scatter points
-        tck, _ = interpolate.splprep([x, y], s=0, k=2)  # s=0 for no smoothing
-        t = np.linspace(0, 1, 100)  # Parameter values
-        line_x, line_y = interpolate.splev(t, tck)  # Evaluate spline
-        return line_x, line_y
+    def _get_smooth_curve(self, x, y, samples=100):
+        """Interpolate a smooth curve through the scatter points"""
+        if self.use_scipy and self.interpolate_fn is not None:
+            tck, _ = self.interpolate_fn.splprep(
+                [x, y],
+                s=0,  # s=0 for no smoothing
+                k=2,
+            )
+            t = np.linspace(0, 1, 100)
+            line_x, line_y = self.interpolate_fn.splev(t, tck)
+            return line_x, line_y
+
+        # Create a smooth curve through x/y points using a Catmull-Rom spline.
+        # Numpy only implementation
+        points = np.column_stack(
+            (
+                np.asarray(x, dtype=float),
+                np.asarray(y, dtype=float),
+            )
+        )
+
+        point_count = len(points)
+
+        # Duplicate the endpoints so the curve starts and ends at the
+        # first and last supplied points.
+        padded = np.vstack((points[0], points, points[-1]))
+
+        # Map the requested samples across all spline segments.
+        position = np.linspace(0.0, point_count - 1, samples)
+        segment = np.minimum(position.astype(int), point_count - 2)
+        t = position - segment
+
+        p0 = padded[segment]
+        p1 = padded[segment + 1]
+        p2 = padded[segment + 2]
+        p3 = padded[segment + 3]
+
+        t = t[:, None]
+        t2 = t * t
+        t3 = t2 * t
+
+        # Standard formula for Catmull–Rom splines
+        curve = 0.5 * (
+            2.0 * p1
+            + (-p0 + p2) * t
+            + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2
+            + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3
+        )
+
+        return curve[:, 0], curve[:, 1]
 
     @staticmethod
     def _format_coords(x, y):
