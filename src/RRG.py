@@ -173,7 +173,11 @@ TAIL MODE
 
             rsr = self._calculate_rs(ser_closes, bm_closes)
 
-            rsm = self._calculate_momentum(rsr, ticker)
+            try:
+                rsm = self._calculate_momentum(rsr, ticker)
+            except IndexError:
+                print(f"{ticker}: Not enough data to load")
+                continue
 
             if min(len(rsm), len(rsr)) < self.tail_count:
                 print(f"Unable to load `{ticker.upper()}`: Insufficient data")
