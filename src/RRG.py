@@ -532,7 +532,7 @@ TAIL MODE
             annotation = self.state[url]["annotation"]
 
             # If a text is already highlighted, skip it
-            if annotation._alpha == 1:
+            if annotation.get_alpha() == 1:
                 continue
 
             self.state[url]["visible"] = True
@@ -552,7 +552,7 @@ TAIL MODE
             line = self.state[url]["line"]
 
             # If a line is already highlighted, skip it
-            if line._alpha == 1:
+            if line.get_alpha() == 1:
                 continue
 
             line.set_alpha(alpha)
@@ -684,7 +684,7 @@ TAIL MODE
 
         date_label = dates[self.tabindex]
 
-        if date_label._alpha == 0:
+        if date_label.get_alpha() == 0:
             # The first arrow press displays the initial date label.
             date_label.set_alpha(1)
             date_label.set_backgroundcolor("white")
