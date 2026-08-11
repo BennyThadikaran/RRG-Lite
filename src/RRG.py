@@ -188,17 +188,13 @@ TAIL MODE
 
             color = self._get_color(rsr.iloc[-1], rsm.iloc[-1])
 
-            if rsr_line.max() > x_max:
-                x_max = rsr_line.max()
+            x_max = max(x_max, rsr_line.max())
 
-            if rsr_line.min() < x_min:
-                x_min = rsr_line.min()
+            x_min = min(x_min, rsr_line.min())
 
-            if rsm_line.max() > y_max:
-                y_max = rsm_line.max()
+            y_max = max(y_max, rsm_line.max())
 
-            if rsm_line.min() < y_min:
-                y_min = rsm_line.min()
+            y_min = min(y_min, rsm_line.min())
 
             annotation = axs.annotate(
                 short_name.upper(),
