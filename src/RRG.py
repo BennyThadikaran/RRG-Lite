@@ -82,17 +82,19 @@ class RRG:
 KEYBOARD SHORTCUTS
 ────────────────────────────────
 
-Del        Clear all lines and annotations
+Del        Clear all lines and annotations; exit tail mode
 A          Toggle text annotations
 T          Toggle tail lines
+Shift+T    Toggle tail mode
 H          Show / hide this help
 
 TAIL MODE
 ────────────────────────────────
 
-1. Left-click a marker to enter tail mode.
-2. Use ← and → to cycle through dates.
-3. Left-click the marker again to exit.
+1. Left-click a marker or press Shift+T to enter tail mode.
+2. Use ↑ and ↓ to cycle through markers.
+3. Use ← and → to cycle through dates.
+4. Press Shift+T or Del, or click the active marker, to exit.
 """
 
         # Map keyboard shortcuts to their relevant handlers
@@ -269,6 +271,7 @@ TAIL MODE
             "h → Toggle Help",
             loc="left",
             color="darkslategray",
+            fontname="monospace",
         )
 
         # Background colors for each quadrant
