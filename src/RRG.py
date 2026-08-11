@@ -1,4 +1,5 @@
 import sys
+from typing import Callable, Dict, Final
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -98,20 +99,25 @@ TAIL MODE
 """
 
         # Map keyboard shortcuts to their relevant handlers
-        self.key_handler = dict(
-            delete=self._clear_all,
-            a=self._toggle_text,
-            t=self._toggle_lines,
-            h=self._toggle_help,
-            left=self._cycle_dates,
-            right=self._cycle_dates,
-        )
+        self.key_handler: Final[Dict[str, Callable]] = {
+            "delete": self._clear_all,
+            "a": self._toggle_text,
+            "t": self._toggle_lines,
+            "shift+t": self._toggle_tail_mode,
+            "h": self._toggle_help,
+            "left": self._cycle_dates,
+            "right": self._cycle_dates,
+            "up": self._cycle_markers,
+            "down": self._cycle_markers,
+        }
 
-        # properties to help track date labels when cycling through them.
-        # Activated when a tail line is highlighted
-        self.tabbable = False
+        # Tail-mode state. Only one marker can be active at a time.
+        self.tail_mode = False
+        self.active_marker_url = None
+        self.active_marker_index = 0
+
+        # Track the date label selected for the active marker.
         self.tabindex = 0
-        self.highlighted_count = 0
         self.active_date_labels = []
 
     def plot(self):
@@ -130,7 +136,10 @@ TAIL MODE
         bm_closes = self._process_ser(bm.loc[:, "Close"])
 
         # Setup the chart
-        self.fig, axs = plt.subplots()
+        fig, axs = plt.subplots()
+
+        self.fig = fig
+        self.axs = axs
         axs.format_coord = self._format_coords
 
         plt.tight_layout()
@@ -260,6 +269,7 @@ TAIL MODE
                 markers=markers,
                 annotation=annotation,
                 dates=date_annotations,
+                visible=False,
             )
 
         x_lim_min = x_min - 0.3
@@ -456,7 +466,6 @@ TAIL MODE
         - Divide the difference with the standard deviation of SMA(ROC)
         - Add 100 to serve as a base value
         """
-
         if self.base_date and self.base_rs is not None:
             # use NEXT index value if no exact match
             position = rs_ratio.index.get_indexer(
@@ -485,24 +494,27 @@ TAIL MODE
 
     def _clear_all(self, key):
         """
-        Clear all additional markers and text annotations
+        Clear all additional markers and text annotations and exit tail mode.
         """
-        updated = False
+        updated = self.tail_mode or bool(self.active_date_labels)
+
+        self._exit_tail_mode(draw=False)
 
         for url in self.state:
-            line = self.state[url]["line"]
-
-            if line._alpha:
+            if self.state[url]["visible"]:
                 updated = True
-                line.set_alpha(0)
-                self.state[url]["markers"].set_alpha(0)
-                self.state[url]["annotation"].set_alpha(self.text_alpha_state)
+                self.state[url]["visible"] = False
 
-        if self.active_date_labels:
-            updated = True
-            self._clear_active_date_labels()
-            self.highlighted_count = 0
-            self.tabbable = 0
+                line = self.state[url]["line"]
+                markers = self.state[url]["markers"]
+                annotation = self.state[url]["annotation"]
+
+                line.set_alpha(0)
+                markers.set_alpha(0)
+                annotation.set_alpha(0)
+
+        self.line_alpha_state = 0
+        self.text_alpha_state = 0
 
         if updated:
             self.fig.canvas.draw_idle()
@@ -520,6 +532,7 @@ TAIL MODE
             if annotation._alpha == 1:
                 continue
 
+            self.state[url]["visible"] = True
             annotation.set_alpha(alpha)
 
         self.text_alpha_state = alpha
@@ -529,7 +542,6 @@ TAIL MODE
         """
         Toggle tail line visibility
         """
-
         # if current state of alpha is 0, set alpha to its default value, else 0
         alpha = self.line_alpha if self.line_alpha_state == 0 else 0
 
@@ -550,7 +562,6 @@ TAIL MODE
         """
         Toggle Help text
         """
-
         if self.help_plt is None:
             self.help_plt = self.axs.text(
                 0.03,
@@ -578,38 +589,110 @@ TAIL MODE
 
         self.fig.canvas.draw_idle()
 
+    def _toggle_tail_mode(self, key):
+        """Enter or exit tail mode."""
+        if self.tail_mode:
+            self._exit_tail_mode()
+            return
+
+        marker_urls = list(self.state)
+
+        if not marker_urls:
+            return
+
+        # Keep index between 0 and len(marker_urls)
+        self.active_marker_index %= len(marker_urls)
+
+        self._activate_marker(marker_urls[self.active_marker_index])
+
+    def _activate_marker(self, url, draw=True):
+        """Activate one marker and restore any previously active marker."""
+        if url not in self.state:
+            return
+
+        if self.active_marker_url and self.active_marker_url != url:
+            self._restore_marker(self.active_marker_url)
+
+        self._clear_active_date_labels()
+        self.tabindex = 0
+
+        marker_urls = list(self.state)
+        self.active_marker_index = marker_urls.index(url)
+        self.active_marker_url = url
+        self.tail_mode = True
+        self._update_mode()
+
+        item = self.state[url]
+        item["line"].set_alpha(1)
+        item["markers"].set_alpha(1)
+        item["annotation"].set_alpha(1)
+        item["visible"] = True
+
+        if draw:
+            self.fig.canvas.draw_idle()
+
+    def _restore_marker(self, url):
+        """Restore a marker to the current global line/text visibility state."""
+        if url not in self.state:
+            return
+
+        item = self.state[url]
+        item["line"].set_alpha(self.line_alpha_state)
+        item["markers"].set_alpha(0)
+        item["annotation"].set_alpha(self.text_alpha_state)
+
+    def _exit_tail_mode(self, draw=True):
+        """Exit tail mode and restore the active marker's normal appearance."""
+        self._clear_active_date_labels()
+
+        if self.active_marker_url:
+            self._restore_marker(self.active_marker_url)
+
+        self.tail_mode = False
+        self.active_marker_url = None
+        self.tabindex = 0
+        self._update_mode()
+
+        if draw:
+            self.fig.canvas.draw_idle()
+
+    def _cycle_markers(self, key):
+        """Cycle through head markers while tail mode is active."""
+        if not self.tail_mode or not self.state:
+            return
+
+        marker_urls = list(self.state)
+        step = -1 if key == "up" else 1
+        self.active_marker_index = (self.active_marker_index + step) % len(marker_urls)
+        self._activate_marker(marker_urls[self.active_marker_index])
+
     def _cycle_dates(self, key):
         """
-        Cycle forward through the tail markers and toggle their visibility.
-        Only works, when a marker has been highlighted by left mouse click.
+        Cycle through the active marker's date labels while in tail mode.
         """
-        if not self.tabbable:
+        if not self.tail_mode or self.active_marker_url is None:
             return
 
         step = -1 if key == "left" else 1
+        dates = self.state[self.active_marker_url]["dates"]
 
-        for url in self.state:
-            # Check if the line is visible
-            if self.state[url]["line"]._alpha == 1:
-                length = len(self.state[url]["dates"])
+        if not dates:
+            return
 
-                # tabindex always starts at 0
-                date_label = self.state[url]["dates"][self.tabindex]
+        date_label = dates[self.tabindex]
 
-                if date_label._alpha == 0:
-                    # On first label, if date_label is hidden, make it visible
-                    date_label.set_alpha(1)
-                    date_label.set_backgroundcolor("white")
-                else:
-                    # on subsequent labels, first hide all date labels
-                    # cycle to next or previous label and set visibility
-                    self._clear_active_date_labels()
-                    self.tabindex = (self.tabindex + step) % length
-                    self.state[url]["dates"][self.tabindex].set_alpha(1)
-                    self.state[url]["dates"][self.tabindex].set_backgroundcolor("white")
+        if date_label._alpha == 0:
+            # The first arrow press displays the initial date label.
+            date_label.set_alpha(1)
+            date_label.set_backgroundcolor("white")
+        else:
+            self._clear_active_date_labels()
+            self.tabindex = (self.tabindex + step) % len(dates)
+            date_label = dates[self.tabindex]
+            date_label.set_alpha(1)
+            date_label.set_backgroundcolor("white")
 
-                # track the visible labels, so we can clear them as needed
-                self.active_date_labels.append(self.state[url]["dates"][self.tabindex])
+        self.active_date_labels.append(date_label)
 
         self.fig.canvas.draw_idle()
 
@@ -624,52 +707,20 @@ TAIL MODE
         """
         Handler for the pick event (when the head marker is clicked).
 
-        Toggle visibility of line, markers and text annotations.
+        Enter tail mode for the clicked marker, select a different marker,
+        or exit when the active marker is clicked again.
         """
         marker = event.artist
 
         url = marker.get_url()
 
-        line = self.state[url]["line"]
-        markers = self.state[url]["markers"]
-        annotation = self.state[url]["annotation"]
+        if url not in self.state:
+            return
 
-        # Reset the tabindex and hide any date labels
-        self.tabindex = 0
-
-        if self.active_date_labels:
-            self._clear_active_date_labels()
-
-        # toggle visibility of tail markers
-        if markers._alpha == 0:
-            markers.set_alpha(1)
-            self.highlighted_count += 1
-            self.tabbable = True
+        if self.tail_mode and self.active_marker_url == url:
+            self._exit_tail_mode()
         else:
-            markers.set_alpha(0)
-            self.highlighted_count -= 1
-
-            if self.highlighted_count == 0:
-                self.tabbable = False
-
-        # toggle visibility of tail lines
-        if self.line_alpha_state == self.line_alpha:
-            # If lines are visible, set the alpha to 1,
-            # else set to default visibility.
-            line.set_alpha(line._alpha == self.line_alpha or self.line_alpha)
-        else:
-            line.set_alpha(line._alpha == 0 or 0)
-
-        if self.text_alpha_state == self.text_alpha:
-            # If text labels are visible, set the alpha to 1,
-            # else set to default visibility
-            annotation.set_alpha(
-                annotation._alpha == self.text_alpha or self.text_alpha
-            )
-        else:
-            annotation.set_alpha(annotation._alpha == 0 or 0)
-
-        self.fig.canvas.draw_idle()
+            self._activate_marker(url)
 
     def _on_key_press(self, event):
         """
@@ -677,5 +728,19 @@ TAIL MODE
         """
         key = event.key
 
+        if key in {"T", "shift+t", "shift+T"}:
+            key = "shift+t"
+        elif isinstance(key, str) and len(key) == 1:
+            key = key.lower()
+
         if key in self.key_handler:
             self.key_handler[key](key)
+
+    def _update_mode(self):
+        label = "Tail Mode On" if self.tail_mode else ""
+        self.axs.set_title(
+            label,
+            loc="right",
+            color="darkslategray",
+            fontname="monospace",
+        )
