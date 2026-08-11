@@ -159,10 +159,9 @@ TAIL MODE
         for i, ticker in enumerate(self.watchlist):
             short_name = None
 
-            if "," in ticker:
-                ticker, short_name = ticker.split(",")
+            ticker, _, short_name = ticker.partition(",")
 
-            if short_name is None:
+            if not short_name:
                 short_name = ticker
 
             df = self.loader.get(ticker)
