@@ -5,10 +5,9 @@ import utils
 from RRG import RRG, version
 
 if "-v" in sys.argv or "--version" in sys.argv:
-    exit(
-        f"""
-        RRG-Lite | Version {version}
-        Copyright (C) 2024 Benny Thadikaran 
+    print(
+        f"RRG-Lite | Version {version}"
+        """Copyright (C) 2024 Benny Thadikaran
 
         Github: https://github.com/BennyThadikaran/RRG-Lite
 
@@ -18,6 +17,7 @@ if "-v" in sys.argv or "--version" in sys.argv:
         See license: https://www.gnu.org/licenses/gpl-3.0.en.html#license-text
         """
     )
+    exit(0)
 
 if "-h" in sys.argv or "--help" in sys.argv:
     utils.parse_cli_options()
