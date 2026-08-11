@@ -29,13 +29,14 @@ class RRG:
                 self.interpolate_fn = interpolate
             except ModuleNotFoundError:
                 print(
-                    "Module scipy is not installed. Run `pip install scipy` to install it."
+                    "Module scipy is not installed. "
+                    "Run `pip install scipy` to install it."
                 )
                 exit(1)
 
         self.watchlist = watchlist
 
-        benchmark_config = config.get("BENCHMARK", None)
+        benchmark_config = config.get("BENCHMARK")
 
         if benchmark:
             self.benchmark = benchmark
@@ -477,7 +478,8 @@ TAIL MODE
                 # No index date exists after base_date
                 self.base_rs = rs_ratio.iloc[-self.period]
                 print(
-                    f"{ticker}: Could not find base_date. Falling back to RS value {self.period} periods ago."
+                    f"{ticker}: Could not find base_date. "
+                    f"Falling back to RS value {self.period} periods ago."
                 )
             else:
                 self.base_rs = rs_ratio.iloc[position]
@@ -700,6 +702,7 @@ TAIL MODE
         for date_label in self.active_date_labels:
             date_label.set_alpha(0)
             date_label._bbox_patch = None
+
         self.active_date_labels.clear()
 
     def _on_pick(self, event):
@@ -737,6 +740,7 @@ TAIL MODE
 
     def _update_mode(self):
         label = "Tail Mode On" if self.tail_mode else ""
+
         self.axs.set_title(
             label,
             loc="right",
