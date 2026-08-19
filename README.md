@@ -4,9 +4,39 @@ RRG-Lite is a Python CLI tool for displaying Relative Rotation graph (RRG) chart
 
 **Supports Python >= 3.8**
 
+## Current Status
+
+RRG-Lite is currently a work in progress, and its RRG calculations are not yet at the level of the original Relative Rotation Graph (RRG) implementation.
+
+The current implementation is more sensitive to short-term price movements and noise, which can result in erratic or unstable rotations. A more robust implementation needs better smoothing and signal-cleanup to produce the smoother, more sustained curves expected from an RRG.
+
+Further development of the project is **currently paused**, while a more robust RRG calculation is worked out. The underlying calculation is being worked and improved before additional features are built on top of it.
+
+If you are looking for a production-ready RRG implementation for Indian markets today, there are already some good alternatives worth considering:
+
+### Alternatives
+
+**Disclaimer:** I use the platforms mentioned below, but have no affiliation or commercial relationship with any of them.
+
+**[Dhan – Dext T3 Trading Terminal](https://dhan.co/dext-t3-trading-terminal/)**
+
+Dext T3 includes a Relative Cycle Graph, which appears to be an in-house implementation of RRG.
+
+Registration on Dhan is free, making it a convenient option to try RRG functionality without an additional subscription.
+
+**[Strike.money](https://web.strike.money/rrg)**
+
+Strike.money provides RRG functionality for Indian markets with a 7-day free trial and monthly payment options.
+
+### Why RRG-Lite?
+
+The project is primarily worth pursuing because of its ability to work with additional and custom indices, that may not be supported by existing platforms.
+
+The goal is to eventually combine that flexibility with a robust implementation of the underlying RRG methodology that is useful to its users.
+
 ## 28th Jan 2026 - v1.0.12-beta.1 Announcement
 
-RS Momentum (Rate of Change) now uses a static base date for more consistent and comparable results. Users can set a custom base date via the new `BASE_DATE` option (ISO format date). If not provided, it defaults to the existing `PERIOD`-based base date. 
+RS Momentum (Rate of Change) now uses a static base date for more consistent and comparable results. Users can set a custom base date via the new `BASE_DATE` option (ISO format date). If not provided, it defaults to the existing `PERIOD`-based base date.
 
 See changes in [v1.0.12-beta.1](https://github.com/BennyThadikaran/RRG-Lite/releases/tag/v1.0.12-beta.1).
 
@@ -59,7 +89,7 @@ If you liked this project, please :star2: the repos to encourage more inspiratio
 
 To get started, you need a folder containing OHLC data (Daily timeframe or higher) in CSV format.
 
-**Folder must contain:** 
+**Folder must contain:**
 
 1. Atleast one Benchmark index file.
 2. One or more stock / etf / sector files.
