@@ -10,7 +10,7 @@ RRG-Lite is currently a work in progress, and its RRG calculations are not yet a
 
 The current implementation is more sensitive to short-term price movements and noise, which can result in erratic or unstable rotations. A more robust implementation needs better smoothing and signal-cleanup to produce the smoother, more sustained curves expected from an RRG.
 
-Further development of the project is **currently paused**, while a more robust RRG calculation is worked out. The underlying calculation is being worked and improved before additional features are built on top of it.
+Further development of the project is **currently paused**, while a more robust RRG calculation is worked out. Once the underlying calculation is improved, additional features can be built on top of it.
 
 If you are looking for a production-ready RRG implementation for Indian markets today, there are already some good alternatives worth considering:
 
