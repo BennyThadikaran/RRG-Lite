@@ -53,7 +53,12 @@ args = utils.parse_cli_options()
 
 loader_class = utils.get_loader_class(config)
 
-watchlist = args.file.read_text().strip().split("\n") if args.file else args.sym
+if args.file:
+    if not args.file.exists():
+        exit(f"Watchlist file not found: {args.file}")
+    watchlist = args.file.read_text().strip().split("\n")
+else:
+    watchlist = args.sym
 
 rrg = RRG(
     config,
